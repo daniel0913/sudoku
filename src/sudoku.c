@@ -2,28 +2,34 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <stdbool.h>
+#include <libgen.h>
 
 #include "sudoku.h"
 
 bool verbose = false;
+char* exec_name;
+
+FILE* output_stream;
 
 static void
 usage (int status)
 {
   if (status == EXIT_SUCCESS)
     {
-      printf ("Usage: sudoku [OPTION] FILE...\n"
+      printf ("Usage: %s [OPTION] FILE...\n"
               "Solve Sudoku puzzles of variable sizes (1-4)\n"
 	      "\n"
 	      "  -o, --output=FILE   write result to FILE\n"
               "  -v, --verbose       verbose output\n"
 	      "  -V, --version       display version and exit\n"
-	      "  -h, --help          display this help\n");
+	      "  -h, --help          display this help\n", 
+	      basename(exec_name));
              
     }
   else
     {
-      fprintf (stderr, "Try `sudoku --help` for more information\n");
+      fprintf (stderr, "Try `%s --help` for more information\n", 
+	       basename(exec_name));
     }
 }
 
@@ -38,7 +44,8 @@ version (void)
 int 
 main (int argc, char* argv[])
 {
-  int optc; 
+  int optc;
+  FILE* fp; 
   struct option long_opts[] = 
     {
       {"output",  required_argument, 0, 'o'}, 
@@ -48,19 +55,22 @@ main (int argc, char* argv[])
       {0, 0, 0, 0}
     };
 
-  if (argc < 2)
-    {
-      fprintf (stderr, "No argument given\n");
-      usage (EXIT_FAILURE);
-      exit (EXIT_FAILURE);
-    }
-  
-  while ((optc = getopt_long(argc, argv, "o:vVh", long_opts, NULL)) != -1)
+  exec_name = argv[0];
+  output_stream = stdout;
+
+  while ((optc = getopt_long (argc, argv, "o:vVh", long_opts, NULL)) != -1)
     {
       switch (optc)
 	{
 	case 'o':
-	  printf ("Output to %s\n", optarg);
+	  fp = fopen (optarg, "w");
+	  if (fp == NULL)
+	    {
+	      fprintf (stderr, "Cannot open file: %s\n", optarg);
+	      exit (-1);
+	    }
+	  else
+	    output_stream = fp;
 	  break;
 
 	case 'v':
@@ -69,14 +79,26 @@ main (int argc, char* argv[])
 
 	case 'V':
 	  version ();
+	  exit (0);
 	  break;
 
 	case 'h':
 	  usage (EXIT_SUCCESS);
+	  exit (0);
 	  break;
 
 	default: 
 	  usage (EXIT_FAILURE);
 	}
     }
+  
+  if (optind != argc -1)
+    usage (EXIT_FAILURE);
+  
+  if ((fclose (output_stream)) != 0)
+    {
+      fprintf (stderr, "File cannot be closed\n");
+      exit (-1);
+    }
+  exit (0);
 }
