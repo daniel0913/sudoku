@@ -31,6 +31,7 @@ usage (int status)
       fprintf (stderr, "Try `%s --help` for more information\n", 
 	       basename(exec_name));
     }
+  exit (status);
 }
 
 static void
@@ -39,6 +40,7 @@ version (void)
   printf ("%s %d.%d.%d\n"
 	  "This software is a sudoku solver\n", 
 	  PROG_NAME, PROG_VERSION, PROG_SUBVERSION, PROG_REVISION);
+  exit (EXIT_SUCCESS);
 }
 
 int 
@@ -67,7 +69,7 @@ main (int argc, char* argv[])
 	  if (fp == NULL)
 	    {
 	      fprintf (stderr, "Cannot open file: %s\n", optarg);
-	      exit (-1);
+	      exit (EXIT_FAILURE);
 	    }
 	  else
 	    output_stream = fp;
@@ -79,12 +81,10 @@ main (int argc, char* argv[])
 
 	case 'V':
 	  version ();
-	  exit (0);
 	  break;
 
 	case 'h':
 	  usage (EXIT_SUCCESS);
-	  exit (0);
 	  break;
 
 	default: 
@@ -98,7 +98,7 @@ main (int argc, char* argv[])
   if ((fclose (output_stream)) != 0)
     {
       fprintf (stderr, "File cannot be closed\n");
-      exit (-1);
+      exit (EXIT_FAILURE);
     }
-  exit (0);
+  exit (EXIT_SUCCESS);
 }
