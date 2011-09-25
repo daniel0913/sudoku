@@ -41,7 +41,16 @@ usage (int status)
 void
 grid_free (char** grid)
 {
-  free(grid);
+  for (unsigned int i = 0; i < grid_size; i++)
+    free (grid[i]);
+  free (grid);
+}
+
+static void
+out_of_memory ()
+{
+  fprintf (stderr, "%s: error: out of memory!\n", exec_name);
+  usage (EXIT_FAILURE);
 }
 
 static char**
@@ -51,13 +60,12 @@ grid_alloc (void)
 
   ret = (char**) calloc (grid_size, sizeof (char*));
   if (ret == NULL)
-    {
-      fprintf (stderr, "%s: error: out of memory!\n", exec_name);
-      usage (EXIT_FAILURE);
-    }
+    out_of_memory ();
   for (unsigned int i = 0; i < grid_size; i++) 
     {
       ret[i] = (char*) calloc (grid_size, sizeof (char));
+      if (ret[i] == NULL)
+	out_of_memory ();
     }
   return (ret);
 }
