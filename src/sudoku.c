@@ -157,8 +157,8 @@ void
 grid_parser (FILE *in)
 {
   char current_char;
-  unsigned int i = 0;
-  unsigned int j = 0;
+  unsigned int i = 0; /* current line */
+  unsigned int j = 0; /* current column */
 
   char first_line[64];
   
@@ -171,12 +171,18 @@ grid_parser (FILE *in)
 	  break;
 
 	case '#':
+	  /*
+	   * After reading the '#' character, read the rest of the line
+	   */
 	  for (char c = fgetc (in); c != '\n' && c != EOF; c = fgetc (in))
 	    ;
 	  break;
 	  
 	case '\n':
-	  if (j == 0) /* empty line */
+	  /*
+	   * empty lines should be ignored
+	   */
+	  if (j == 0) 
 	      break;
 
 	  if (i == 0)
@@ -186,7 +192,7 @@ grid_parser (FILE *in)
 	      for (unsigned int k = 0; k < j; k++)
 		{
 		  if (!check_input_char (first_line[k]))
-		    bad_character (1, first_line[k]);
+		    bad_character (i + 1, first_line[k]);
 		}
 	      grid = grid_alloc ();
 	      memcpy (grid[0], first_line, grid_size);
@@ -199,10 +205,8 @@ grid_parser (FILE *in)
 	  break;
 
 	default:
-
 	  if (grid_size != 0 && i >= grid_size)
 	    bad_number_of_lines ();
-
 	  
 	  if (i == 0)
 	    first_line[j] = current_char;
@@ -224,14 +228,20 @@ grid_parser (FILE *in)
 	    }
 	}
     }
-
+  /*
+   * The case of the grid of size 1 without a newline at the end
+   */
   if (grid_size == 0 && j == 1)
     {
       grid_size = 1;
       grid = grid_alloc ();
       memcpy (grid[0], first_line, grid_size);
     }
-  
+  /*
+   * The right part of the disjunction handles the case of reading the
+   * grid that doesn't have a newline at the end, which should be read
+   * as a correct one.
+   */
   if (i < grid_size - 1 || ((i == grid_size - 1) && (j != grid_size)))
       bad_number_of_lines ();
 }
