@@ -248,7 +248,7 @@ main (int argc, char* argv[])
       {"verbose", no_argument,       0, 'v'},
       {"version", no_argument,       0, 'V'},
       {"help",    no_argument,       0, 'h'},
-      {0, 0, 0, 0}
+      {NULL, 0, NULL, 0}
     };
 
   exec_name = argv[0];
