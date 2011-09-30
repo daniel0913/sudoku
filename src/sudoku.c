@@ -217,14 +217,22 @@ grid_parser (FILE *in)
 	  if (grid_size != 0 && j > grid_size)
 	    bad_line (i + 1);	  
 	  
-	  if (j >= 64)
+	  if (j > 64)
 	    {
 	      fprintf (stderr, "Grid is too big\n");
 	      usage (EXIT_FAILURE);
 	    }
 	}
     }
-  if (i < grid_size)
+
+  if (grid_size == 0 && j == 1)
+    {
+      grid_size = 1;
+      grid = grid_alloc ();
+      memcpy (grid[0], first_line, grid_size);
+    }
+  
+  if (i < grid_size - 1 || ((i == grid_size - 1) && (j != grid_size)))
       bad_number_of_lines ();
 }
 
