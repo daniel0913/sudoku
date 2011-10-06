@@ -5,6 +5,8 @@
 #include <libgen.h>
 #include <string.h>
 
+#include <preemptive_set.h>
+
 #include "sudoku.h"
 
 bool verbose = false;
