@@ -76,12 +76,23 @@ void
 grid_print (pset_t** grid)
 {
   char str[MAX_COLORS+1] = {0};
+  size_t max_cardinality = 0;
+
+  for (unsigned int i = 0; i < grid_size; i++)
+    for (unsigned int j = 0; j < grid_size; j++)
+      {
+	if (pset_cardinality(grid[i][j]) > max_cardinality)
+	  max_cardinality = pset_cardinality(grid[i][j]);
+      }
+  
   for (unsigned int i = 0; i < grid_size; i++)
     {
       for (unsigned int j = 0; j < grid_size; j++)
 	{
 	  pset2str (str, grid[i][j]);
 	  fprintf (output_stream, "%s ", str);
+	  for (size_t m = max_cardinality; m > 0; m--)
+	    fputc (' ', output_stream);
 	}
       fprintf (output_stream, "\n");
     }

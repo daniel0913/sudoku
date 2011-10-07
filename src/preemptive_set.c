@@ -85,9 +85,6 @@ pset_is_included (pset_t pset1, pset_t pset2)
   return ((pset1 | pset2) == pset2);
 }
 
-/*
- * might have a bug
- */
 bool 
 pset_is_singleton (pset_t pset)
 {
