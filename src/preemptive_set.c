@@ -14,7 +14,7 @@ pset_t char2pset (char c)
   return ((pset_t) 0);
 }
 
-void pset2str (char string[MAX_COLORS + 2], pset_t pset)
+void pset2str (char string[MAX_COLORS + 1], pset_t pset)
 {
   int j = 0;
   for (int i = 0; i < MAX_COLORS; i++)
@@ -27,6 +27,14 @@ void pset2str (char string[MAX_COLORS + 2], pset_t pset)
       pset >>= 1;
     }
   string[j] = '\0';
+}
+
+/*
+ * Not sure about this definition
+ */
+pset_t pset_full (size_t color_range)
+{
+  return ((pset_t) color_range);
 }
 
 pset_t pset_empty ()
