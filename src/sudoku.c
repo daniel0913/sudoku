@@ -89,9 +89,11 @@ grid_print (pset_t** grid)
     {
       for (unsigned int j = 0; j < grid_size; j++)
 	{
+	  size_t m = max_cardinality - pset_cardinality(grid[i][j]);
+	  
 	  pset2str (str, grid[i][j]);
 	  fprintf (output_stream, "%s ", str);
-	  for (size_t m = max_cardinality; m > 0; m--)
+	  for (;m > 0; m--)
 	    fputc (' ', output_stream);
 	}
       fprintf (output_stream, "\n");
