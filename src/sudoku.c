@@ -15,7 +15,7 @@ char* exec_name;
 FILE* output_stream;
 
 size_t grid_size = 0;
-char** grid; 
+pset_t** grid; 
 
 static void
 usage (int status)
@@ -41,7 +41,7 @@ usage (int status)
 }
 
 void
-grid_free (char** grid)
+grid_free (pset_t** grid)
 {
   for (unsigned int i = 0; i < grid_size; i++)
     free (grid[i]);
@@ -55,17 +55,17 @@ out_of_memory ()
   usage (EXIT_FAILURE);
 }
 
-static char**
+static pset_t**
 grid_alloc (void)
 {
-  char** ret;
+  pset_t** ret;
 
-  ret = (char**) calloc (grid_size, sizeof (char*));
+  ret = (pset_t**) calloc (grid_size, sizeof (pset_t*));
   if (ret == NULL)
     out_of_memory ();
-  for (unsigned int i = 0; i < grid_size; i++) 
+  for (unsigned int i = 0; i < grid_size; i++)
     {
-      ret[i] = (char*) calloc (grid_size, sizeof (char));
+      ret[i] = (pset_t*) calloc (grid_size, sizeof (pset_t));
       if (ret[i] == NULL)
 	out_of_memory ();
     }
@@ -73,12 +73,16 @@ grid_alloc (void)
 }
 
 void
-grid_print (char** grid)
+grid_print (pset_t** grid)
 {
+  char str[MAX_COLORS+1] = {0};
   for (unsigned int i = 0; i < grid_size; i++)
     {
       for (unsigned int j = 0; j < grid_size; j++)
-	fprintf (output_stream, "%c ", grid[i][j]);
+	{
+	  pset2str (str, grid[i][j]);
+	  fprintf (output_stream, "%s ", str);
+	}
       fprintf (output_stream, "\n");
     }
 }
@@ -191,13 +195,16 @@ grid_parser (FILE *in)
 	    {
 	      check_size_of_grid (j);
 	      grid_size = j;
-	      for (unsigned int k = 0; k < j; k++)
+	      grid = grid_alloc ();
+	      for (unsigned int k = 0; k < grid_size; k++)
 		{
 		  if (!check_input_char (first_line[k]))
 		    bad_character (i + 1, first_line[k]);
+		  if (first_line[k] == '_')
+		    grid[0][k] = pset_full (grid_size);
+		  else
+		    grid[0][k] = char2pset (first_line[k]);
 		}
-	      grid = grid_alloc ();
-	      memcpy (grid[0], first_line, grid_size);
 	    }
 	  if (j < grid_size)
 	    bad_line (i + 1);
@@ -216,7 +223,10 @@ grid_parser (FILE *in)
 	    {
 	      if (!check_input_char(current_char))
 		bad_character(i + 1, current_char);
-	      grid[i][j] = current_char;
+	      if (current_char == '_')
+		grid[i][j] = pset_full (grid_size);
+	      else
+		grid[i][j] = char2pset (current_char);
 	    }
 	  j++;
 
@@ -237,7 +247,11 @@ grid_parser (FILE *in)
     {
       grid_size = 1;
       grid = grid_alloc ();
-      memcpy (grid[0], first_line, grid_size);
+
+      if (first_line[0] == '_')
+	grid[0][0] = pset_full (grid_size);
+      else
+	grid[0][0] = char2pset (first_line[0]);
     }
   /*
    * The right part of the disjunction handles the case of reading the

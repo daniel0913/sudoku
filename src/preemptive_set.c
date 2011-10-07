@@ -44,32 +44,15 @@ pset_empty ()
 }
 
 pset_t 
-pset_set_or_discard (pset_t pset, char c, bool set)
-{
-  pset_t j = 1;
-  for (int i = 0; i < MAX_COLORS; i++)
-    {
-      if (color_table[i] == c)
-	{
-	  if (set)
-	    return (pset & j);
-	  else
-	    return (pset & (~j));
-	}
-      j <<= 1;
-    }
-  return (pset);
-}
-pset_t 
 pset_set (pset_t pset, char c)
 {
-  return (pset_set_or_discard (pset, c, true));
+  return (pset | char2pset (c));
 }
 
 pset_t 
 pset_discard (pset_t pset, char c)
 {
-  return (pset_set_or_discard (pset, c, false));
+  return (pset & (~ char2pset (c)));
 }
 
 pset_t 
@@ -114,10 +97,10 @@ pset_is_singleton (pset_t pset)
 size_t 
 pset_cardinality (pset_t pset)
 {
-  const uint64_t m1  = 0x5555555555555555;
-  const uint64_t m2  = 0x3333333333333333;
-  const uint64_t m4  = 0x0f0f0f0f0f0f0f0f;
-  const uint64_t h01 = 0x0101010101010101; 
+  static const uint64_t m1  = 0x5555555555555555;
+  static const uint64_t m2  = 0x3333333333333333;
+  static const uint64_t m4  = 0x0f0f0f0f0f0f0f0f;
+  static const uint64_t h01 = 0x0101010101010101; 
   
   pset -= (pset >> 1) & m1;
   pset = (pset & m2) + ((pset >> 2) & m2);

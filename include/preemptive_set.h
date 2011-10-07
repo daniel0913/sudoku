@@ -12,6 +12,7 @@ typedef uint64_t pset_t;
 
 pset_t char2pset (char c);
 void pset2str (char[] , pset_t);
+pset_t pset_full (size_t);
 pset_t pset_empty ();
 pset_t pset_set (pset_t, char);
 pset_t pset_discard (pset_t, char);
