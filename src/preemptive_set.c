@@ -1,8 +1,8 @@
 #include <preemptive_set.h>
 
 const char color_table[] = "123456789"
-                           "ABCDEFGHIJKLMNOPQRSTUVXYZ"
-                           "abcdefghijklmnopqrstuvxyz"
+                           "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                           "abcdefghijklmnopqrstuvwxyz"
                            "@&*";
 pset_t 
 char2pset (char c)
@@ -34,6 +34,8 @@ pset2str (char string[MAX_COLORS + 1], pset_t pset)
 pset_t 
 pset_full (size_t color_range)
 {
+  if (color_range > MAX_COLORS)
+    return (FULL);
   return (FULL >> (MAX_COLORS - color_range));
 }
 
@@ -88,6 +90,8 @@ pset_is_included (pset_t pset1, pset_t pset2)
 bool 
 pset_is_singleton (pset_t pset)
 {
+  if (!pset)
+    return (false);
   return ((pset & (- pset)) == pset);
 }
 
