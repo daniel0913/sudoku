@@ -28,12 +28,8 @@ grid_free (pset_t** grid)
     return;
 
   for (unsigned int i = 0; i < grid_size; i++)
-    {
-      if (grid == NULL)
-	break;
-      free (grid[i]);
-    }
-  
+    free (grid[i]);
+
   free (grid);
 }
 
