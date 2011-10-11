@@ -1,14 +1,11 @@
-# Variables
-# Usual compilation flags
 CFLAGS=-std=c99 -Wall -Wextra -g -O2
 CPPFLAGS=-I../include -DDEBUG
 LDFLAGS=-lm
 
 OBJ=sudoku.o preemptive_set.o
 
-# Special rules and targets
 .PHONY: all clean help
-# Rules and targets
+
 all: sudoku
 
 %.o: %.c

@@ -9,50 +9,32 @@
 
 #include "sudoku.h"
 
-bool verbose = false;
-char* exec_name;
+#define MAX_GRID_SIZE 64
 
-FILE* output_stream;
+static bool verbose = false;
+static char* exec_name;
 
-size_t grid_size = 0;
-pset_t** grid; 
+static FILE* output_stream;
 
-static void
-usage (int status)
-{
-  if (status == EXIT_SUCCESS)
-    {
-      printf ("Usage: %s [OPTION] FILE...\n"
-              "Solve Sudoku puzzles of variable sizes (1-4)\n"
-	      "\n"
-	      "  -o, --output=FILE   write result to FILE\n"
-              "  -v, --verbose       verbose output\n"
-	      "  -V, --version       display version and exit\n"
-	      "  -h, --help          display this help\n", 
-	      basename(exec_name));
-             
-    }
-  else
-    {
-      fprintf (stderr, "Try `%s --help` for more information\n", 
-	       basename(exec_name));
-    }
-  exit (status);
-}
+static size_t grid_size = 0;
+static pset_t** grid; 
+
+static void usage (int);
 
 void
 grid_free (pset_t** grid)
 {
-  for (unsigned int i = 0; i < grid_size; i++)
-    free (grid[i]);
-  free (grid);
-}
+  if  (grid == NULL)
+    return;
 
-static void
-out_of_memory ()
-{
-  fprintf (stderr, "%s: error: out of memory!\n", exec_name);
-  usage (EXIT_FAILURE);
+  for (unsigned int i = 0; i < grid_size; i++)
+    {
+      if (grid == NULL)
+	break;
+      free (grid[i]);
+    }
+  
+  free (grid);
 }
 
 static pset_t**
@@ -60,16 +42,21 @@ grid_alloc (void)
 {
   pset_t** ret;
 
-  ret = (pset_t**) calloc (grid_size, sizeof (pset_t*));
+  ret = calloc (grid_size, sizeof (pset_t*));
   if (ret == NULL)
-    out_of_memory ();
+    goto out_of_memory;
   for (unsigned int i = 0; i < grid_size; i++)
     {
-      ret[i] = (pset_t*) calloc (grid_size, sizeof (pset_t));
+      ret[i] = calloc (grid_size, sizeof (pset_t));
       if (ret[i] == NULL)
-	out_of_memory ();
+	goto out_of_memory;
     }
   return (ret);
+
+ out_of_memory:
+  fprintf (stderr, "%s: error: out of memory!\n", exec_name);
+  usage (EXIT_FAILURE);
+  return (NULL);
 }
 
 void
@@ -103,40 +90,25 @@ grid_print (pset_t** grid)
 static bool
 check_input_char (char c)
 {
+  const char tbl[] = "123456789"
+                     "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                     "abcdefghijklmnopqrstuvwxyz"
+                     "@&*";
+  bool acc = false;
+  
   if (c == '_')
     return (true);
 
-  bool digit = (c >= '1') && (c <= '9');
-
-  switch (grid_size)
-    {
-    case 1:
-      return (c == '1');
-    case 4:
-      return ((c >= '1') && (c <= '4'));
-    case 9:
-      return (digit);
-    case 16:
-      return (((c >= 'A') && (c <= 'G')) || digit);
-    case 25: 
-      return (((c >= 'A') && (c <= 'P')) || digit);
-    case 36:
-      return (((c >= 'A') && (c <= 'Z')) || c == 'a' || digit);
-    case 49:
-      return (((c >= 'A') && (c <= 'Z')) || 
-	      ((c >= 'a') && (c <= 'n')) || digit);
-    case 64:
-      return (((c >= 'A') && (c <= 'Z')) || 
-	      ((c >= 'a') && (c <= 'z')) || 
-	      c == '@' || c == '*' || c == '&' || digit);
-    default:
-      return (false);
-    }
+  for (unsigned int i = 0; i < grid_size; i++)
+    acc = acc || (c == tbl[i]);
+  
+  return (acc);
 }
 
 static void
-bad_character (int line_number, char c)
+bad_character (int line_number, char c, FILE* in)
 {
+  fclose (in);
   fprintf (stderr, 
 	   "%s: error: wrong character \'%c\' at line %d\n", 
 	   exec_name, c, line_number);
@@ -144,8 +116,9 @@ bad_character (int line_number, char c)
 }
 
 static void
-bad_number_of_lines (void)
+bad_number_of_lines (FILE* in)
 {
+  fclose (in);
   fprintf (stderr,
 	   "%s: error: too many/few lines in the grid\n",
 	   exec_name);
@@ -153,8 +126,9 @@ bad_number_of_lines (void)
 }
 
 static void
-bad_line (int line_number)
+bad_line (int line_number, FILE* in)
 {
+  fclose (in);
   fprintf (stderr,
 	   "%s: error: line %d is malformed (wrong number of cells)\n",
 	   exec_name, line_number);
@@ -162,11 +136,12 @@ bad_line (int line_number)
 }
 
 static void
-check_size_of_grid (int s)
+check_size_of_grid (int s, FILE *in)
 {
   if (s != 1  && s != 4  && s != 9  && s != 16 &&
       s != 25 && s != 36 && s != 49 && s != 64)
     {
+      fclose (in);
       fprintf (stderr, "Wrong grid size: %d\n", s);
       usage (EXIT_FAILURE);
     }
@@ -175,11 +150,11 @@ check_size_of_grid (int s)
 void
 grid_parser (FILE *in)
 {
-  char current_char;
+  int current_char, c;
   unsigned int i = 0; /* current line */
   unsigned int j = 0; /* current column */
 
-  char first_line[64];
+  char first_line[MAX_GRID_SIZE];
   
   while ((current_char = fgetc (in)) != EOF)
     {
@@ -193,9 +168,10 @@ grid_parser (FILE *in)
 	  /*
 	   * After reading the '#' character, read the rest of the line
 	   */
-	  for (char c = fgetc (in); c != '\n' && c != EOF; c = fgetc (in))
+	  for (c = fgetc (in); c != '\n' && c != EOF; c = fgetc (in))
 	    ;
-	  break;
+	  if (c == EOF)
+	    break;
 	  
 	case '\n':
 	  /*
@@ -206,13 +182,14 @@ grid_parser (FILE *in)
 
 	  if (i == 0)
 	    {
-	      check_size_of_grid (j);
+	      check_size_of_grid (j, in);
 	      grid_size = j;
 	      grid = grid_alloc ();
+	      
 	      for (unsigned int k = 0; k < grid_size; k++)
 		{
 		  if (!check_input_char (first_line[k]))
-		    bad_character (i + 1, first_line[k]);
+		    bad_character (i + 1, first_line[k], in);
 		  if (first_line[k] == '_')
 		    grid[0][k] = pset_full (grid_size);
 		  else
@@ -220,7 +197,7 @@ grid_parser (FILE *in)
 		}
 	    }
 	  if (j < grid_size)
-	    bad_line (i + 1);
+	    bad_line (i + 1, in);
 
 	  i++;
 	  j = 0;	  
@@ -228,14 +205,17 @@ grid_parser (FILE *in)
 
 	default:
 	  if (grid_size != 0 && i >= grid_size)
-	    bad_number_of_lines ();
+	    bad_number_of_lines (in);
+
+	  if (grid_size != 0 && j >= grid_size)
+	    bad_line (i + 1, in);
 	  
 	  if (i == 0)
 	    first_line[j] = current_char;
 	  else
 	    {
 	      if (!check_input_char(current_char))
-		bad_character(i + 1, current_char);
+		bad_character(i + 1, current_char, in);
 	      if (current_char == '_')
 		grid[i][j] = pset_full (grid_size);
 	      else
@@ -243,10 +223,7 @@ grid_parser (FILE *in)
 	    }
 	  j++;
 
-	  if (grid_size != 0 && j > grid_size)
-	    bad_line (i + 1);	  
-	  
-	  if (j > 64)
+	  if (j > MAX_GRID_SIZE)
 	    {
 	      fprintf (stderr, "Grid is too big\n");
 	      usage (EXIT_FAILURE);
@@ -272,7 +249,32 @@ grid_parser (FILE *in)
    * as a correct one.
    */
   if (i < grid_size - 1 || ((i == grid_size - 1) && (j != grid_size)))
-      bad_number_of_lines ();
+      bad_number_of_lines (in);
+}
+
+static void
+usage (int status)
+{
+  if (status == EXIT_SUCCESS)
+    {
+      printf ("Usage: %s [OPTION] FILE...\n"
+              "Solve Sudoku puzzles of variable sizes (1-4)\n"
+	      "\n"
+	      "  -o, --output=FILE   write result to FILE\n"
+              "  -v, --verbose       verbose output\n"
+	      "  -V, --version       display version and exit\n"
+	      "  -h, --help          display this help\n", 
+	      basename(exec_name));
+    }
+  else
+    {
+      fprintf (stderr, "Try `%s --help` for more information\n", 
+	       basename(exec_name));
+    }
+   grid_free (grid);
+  
+  fclose (output_stream);  
+  exit (status);
 }
 
 static void
@@ -346,6 +348,7 @@ main (int argc, char* argv[])
 	}
       grid_parser (in);
       grid_print (grid);
+      grid_free (grid);
     }
 
   if ((output_stream != stdout && fclose (output_stream) != 0) ||
