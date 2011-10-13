@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <libgen.h>
 #include <string.h>
+#include <math.h>
 
 #include <preemptive_set.h>
 
@@ -20,6 +21,80 @@ static size_t grid_size = 0;
 static pset_t** grid; 
 
 static void usage (int);
+
+static void
+get_block (pset_t** grid, unsigned int k, pset_t* block[grid_size])
+{
+  size_t block_size = sqrt (grid_size);
+
+  int block_index = 0;
+  
+  int init_i = (k / block_size) * block_size;
+  int init_j = (k * block_size) % grid_size;
+  
+  for (unsigned int i = 0; i < block_size; i++)
+    for (unsigned int j = 0; j < block_size; j++)
+      {
+	block[block_index] = &grid[init_i + i][init_j + j];
+	block_index++;
+      }
+}
+
+bool
+subgrid_map (pset_t** grid, bool (*func) (pset_t* subgrid[grid_size]))
+{
+  pset_t* subgrid[grid_size];
+
+  for (unsigned int i = 0; i < grid_size; i++)
+      if (!func (&grid[i]))
+	return (false);
+
+  for (unsigned int i = 0; i < grid_size; i++)
+    {
+      for (unsigned int j = 0; j < grid_size; j++)
+	subgrid[j] = &grid[j][i];
+      if (!func (subgrid))
+	return (false);
+    }
+
+  for (unsigned int i = 0; i < grid_size; i++)
+    {
+      get_block (grid, i, subgrid);
+      if (!func (subgrid))
+	return (false);
+    }
+
+  return (true);
+}
+
+static bool
+all_different (pset_t** subgrid)
+{
+  pset_t acc = 0;
+  
+  for (unsigned int i = 0; i < grid_size; i++)
+    acc = pset_xor (acc, *subgrid[i]);
+
+  return (acc == pset_full (grid_size));
+}
+
+bool 
+grid_solved (pset_t** grid)
+{
+  return (subgrid_map (grid, &all_different));
+}
+
+bool 
+grid_heuristics (pset_t** grid)
+{
+  bool fixpoint = false;
+
+  while (!fixpoint)
+    {
+      fixpoint = true;
+    }
+  return (grid_solved (grid));
+}
 
 void
 grid_free (pset_t** grid)
