@@ -9,10 +9,10 @@ OBJ=sudoku.o preemptive_set.o
 all: sudoku
 
 %.o: %.c
-	$(CC) $(CPPFLAGS) $(CFLAGS) -c $<
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c $<
 
 sudoku: $(OBJ)
-	$(CC) $(LDFLAGS) -o $@ $^ 
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS) 
 
 clean:
 	@rm -f *~ *.o sudoku

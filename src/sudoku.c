@@ -1,10 +1,10 @@
+#include <getopt.h>
+#include <libgen.h>
+#include <math.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <getopt.h>
-#include <stdbool.h>
-#include <libgen.h>
 #include <string.h>
-#include <math.h>
 
 #include <preemptive_set.h>
 
@@ -147,11 +147,11 @@ grid_print (pset_t** grid)
     {
       for (unsigned int j = 0; j < grid_size; j++)
 	{
-	  size_t m = max_cardinality - pset_cardinality(grid[i][j]);
+	  size_t max_length = max_cardinality - pset_cardinality(grid[i][j]);
 	  
 	  pset2str (str, grid[i][j]);
 	  fprintf (output_stream, "%s ", str);
-	  for (;m > 0; m--)
+	  for (;max_length > 0; max_length--)
 	    fputc (' ', output_stream);
 	}
       fprintf (output_stream, "\n");
@@ -165,15 +165,14 @@ check_input_char (char c)
                      "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                      "abcdefghijklmnopqrstuvwxyz"
                      "@&*";
-  bool acc = false;
-  
   if (c == '_')
     return (true);
 
   for (unsigned int i = 0; i < grid_size; i++)
-    acc = acc || (c == tbl[i]);
+    if (c == tbl[i])
+      return (true);
   
-  return (acc);
+  return (false);
 }
 
 static void
