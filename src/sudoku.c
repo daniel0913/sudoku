@@ -43,32 +43,34 @@ get_block (pset_t** grid, unsigned int k, pset_t* block[grid_size])
 bool
 subgrid_map (pset_t** grid, bool (*func) (pset_t* subgrid[grid_size]))
 {
-  pset_t* subgrid[grid_size];
+  pset_t* line_subgrid[grid_size];
+  pset_t* column_subgrid[grid_size];
+  pset_t* block_subgrid[grid_size];
 
-  for (unsigned int i = 0; i < grid_size; i++)
-      if (!func (&grid[i]))
-	return (false);
-
+  bool acc = true;
+  
   for (unsigned int i = 0; i < grid_size; i++)
     {
       for (unsigned int j = 0; j < grid_size; j++)
-	subgrid[j] = &grid[j][i];
-      if (!func (subgrid))
-	return (false);
+	{
+	  column_subgrid[j] = &grid[j][i];
+	  line_subgrid[j] = &grid[i][j];
+	}
+
+      acc = func (line_subgrid) && func (column_subgrid) && acc;
     }
 
   for (unsigned int i = 0; i < grid_size; i++)
     {
-      get_block (grid, i, subgrid);
-      if (!func (subgrid))
-	return (false);
+      get_block (grid, i, block_subgrid);
+      acc = func (block_subgrid) && acc;
     }
 
-  return (true);
+  return (acc);
 }
 
 static bool
-all_different (pset_t** subgrid)
+all_different (pset_t* subgrid[])
 {
   pset_t acc = 0;
   
@@ -78,22 +80,105 @@ all_different (pset_t** subgrid)
   return (acc == pset_full (grid_size));
 }
 
+static bool
+subgrid_consistency (pset_t* subgrid[])
+{
+  pset_t acc = 0;
+  
+  for (unsigned int i = 0; i < grid_size; i++)
+    acc = pset_or (acc, *subgrid[i]);
+    
+  for (unsigned int i = 0; i < grid_size; i++)
+    for (unsigned int j = 0; j < grid_size; j++)
+      {
+	if (pset_is_singleton (*subgrid[i]) 
+	    && pset_is_singleton (*subgrid[j])
+	    && (*subgrid[i] == *subgrid[j])
+	    && i != j)
+	  return (false);
+      }
+  
+  return (acc == pset_full (grid_size));
+}
+
+bool
+grid_consistency (pset_t** grid)
+{
+  return (subgrid_map (grid, &subgrid_consistency));
+}
+
 bool 
 grid_solved (pset_t** grid)
 {
   return (subgrid_map (grid, &all_different));
 }
 
-bool 
+static bool
+subgrid_heuristics (pset_t** subgrid)
+{
+  bool changed = false;
+
+  /*
+   * The cross-hatching heuristic. Crosses off the already seen
+   * singletons in the subgrid.
+   */
+  for (unsigned int i = 0; i < grid_size; i++)
+    {
+      if (pset_is_singleton(*subgrid[i]))
+	for (unsigned j = 0; j < grid_size; j++)
+	  if (i != j && pset_is_included (*subgrid[i], *subgrid[j]))
+	    {
+	      *subgrid[j] = pset_and (pset_negate (*subgrid[i]), 
+				      *subgrid[j]);
+	      changed = true;
+	    }
+    }
+
+  /*
+   * The lone number heuristic. Finds a color in a cell which is not
+   * to be found anywhere else. And assigns that color to that
+   * respective cell. 
+   */
+  pset_t acc;
+
+  for (unsigned int i = 0; i < grid_size; i++)
+    {
+      acc = *subgrid[i];
+      if (pset_is_singleton (acc))
+	continue;
+      
+      for (unsigned int j = 0; j < grid_size; j++)
+	{
+	  if (i != j)
+	    acc = pset_and (acc, pset_negate (*subgrid[j]));
+	}
+      if (pset_is_singleton (acc))
+	{
+	  *subgrid[i] = acc;
+	  changed = true;
+	}
+    }
+  
+  return (changed);
+}
+
+int 
 grid_heuristics (pset_t** grid)
 {
-  bool fixpoint = false;
+  bool changed = true;
 
-  while (!fixpoint)
+  while (changed)
     {
-      fixpoint = true;
+      changed = subgrid_map (grid, &subgrid_heuristics);
     }
-  return (grid_solved (grid));
+
+  if (grid_solved (grid))
+    return (0);
+
+  if (grid_consistency (grid))
+    return (1);
+  else
+    return (2);
 }
 
 void
@@ -341,7 +426,7 @@ usage (int status)
       fprintf (stderr, "Try `%s --help` for more information\n", 
 	       basename(exec_name));
     }
-   grid_free (grid);
+  grid_free (grid);
   
   fclose (output_stream);  
   exit (status);
@@ -417,6 +502,20 @@ main (int argc, char* argv[])
 	  usage (EXIT_FAILURE);
 	}
       grid_parser (in);
+
+      switch (grid_heuristics (grid))
+      	{
+      	case 0:
+      	  fprintf (output_stream, "Grid has been solved\n");
+      	  break;
+      	case 1:
+      	  fprintf (output_stream, "Grid has not been solved\n");
+      	  break;
+      	case 2:
+      	  fprintf (output_stream, "Grid is not consistent\n");
+      	  break;
+      	}
+
       grid_print (grid);
       grid_free (grid);
     }
