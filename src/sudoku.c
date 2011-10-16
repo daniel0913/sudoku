@@ -21,6 +21,7 @@ static size_t grid_size = 0;
 static pset_t** grid; 
 
 static void usage (int);
+void grid_print (pset_t** grid);
 
 static void
 get_block (pset_t** grid, unsigned int k, pset_t* block[grid_size])
@@ -158,18 +159,23 @@ subgrid_heuristics (pset_t** subgrid)
 	  changed = true;
 	}
     }
-  
-  return (changed);
+
+  return (!changed);
 }
 
 int 
 grid_heuristics (pset_t** grid)
 {
-  bool changed = true;
+  bool not_changed = false;
 
-  while (changed)
+  while (!not_changed)
     {
-      changed = subgrid_map (grid, &subgrid_heuristics);
+      if (verbose)
+	{
+	  grid_print (grid);
+	  fprintf (output_stream, "\n");
+	}
+      not_changed = subgrid_map (grid, &subgrid_heuristics);
     }
 
   if (grid_solved (grid))
