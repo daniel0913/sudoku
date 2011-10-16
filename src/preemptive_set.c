@@ -12,7 +12,7 @@ char2pset (char c)
       if (color_table[i] == c)
 	return (((pset_t) 1) << i);
     }
-  return ((pset_t) 0);
+  return (0);
 }
 
 void 
@@ -34,15 +34,13 @@ pset2str (char string[MAX_COLORS + 1], pset_t pset)
 pset_t 
 pset_full (size_t color_range)
 {
-  if (color_range > MAX_COLORS)
-    return (FULL);
-  return (FULL >> (MAX_COLORS - color_range));
+  return (color_range > MAX_COLORS ? FULL : FULL >> (MAX_COLORS - color_range))
 }
 
 pset_t 
-pset_empty ()
+pset_empty (void)
 {
-  return ((pset_t) 0);
+  return (0);
 }
 
 pset_t 
@@ -90,9 +88,7 @@ pset_is_included (pset_t pset1, pset_t pset2)
 bool 
 pset_is_singleton (pset_t pset)
 {
-  if (!pset)
-    return (false);
-  return ((pset & (- pset)) == pset);
+  return (!pset ? false : (pset & (- pset) == pset));
 }
 
 size_t 

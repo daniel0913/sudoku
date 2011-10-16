@@ -23,7 +23,7 @@ void pset2str (char[] , pset_t);
  * `pset_empty` just returns the empty set.
  */
 pset_t pset_full (size_t);
-pset_t pset_empty ();
+pset_t pset_empty (void);
 
 /*
  * `pset_set` sets the given color, while `pset_discard` does the
