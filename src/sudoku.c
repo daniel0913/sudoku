@@ -71,7 +71,7 @@ subgrid_map (pset_t** grid, bool (*func) (pset_t* subgrid[grid_size]))
 }
 
 static bool
-all_different (pset_t* subgrid[])
+all_different (pset_t* subgrid[grid_size])
 {
   pset_t acc = 0;
   
@@ -82,7 +82,7 @@ all_different (pset_t* subgrid[])
 }
 
 static bool
-subgrid_consistency (pset_t* subgrid[])
+subgrid_consistency (pset_t* subgrid[grid_size])
 {
   pset_t acc = 0;
   
