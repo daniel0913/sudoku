@@ -36,11 +36,6 @@ typedef struct choice {
          		    * or NULL if it is the first choice */
 } choice_t;
 
-choice_t* stack_pop (choice_t* stack, pset_t** grid)
-{
-  
-}
-
 void
 stack_print (choice_t* stack)
 {
@@ -78,8 +73,29 @@ stack_free (choice_t* stack)
   return (stack_free (prev));
 }
 
+choice_t* stack_pop (choice_t* stack, pset_t** grid)
+{
+
+  if (stack == NULL)
+    return (NULL);
+  
+  choice_t* prev = stack->previous; 
+
+  stack->grid[stack->x][stack->y] = pset_and (stack->grid[stack->x][stack->y],
+					      pset_negate (stack->choice));
+  
+  for (unsigned int i = 0; i < grid_size; i++)
+    for (unsigned int j = 0; j < grid_size; j++)
+      grid[i][j] = stack->grid[i][j];
+
+  free (stack->grid);
+  free (stack);
+
+  return (prev);
+}
+
 choice_t*
-stack_push (choice_t* stack, pset_t **grid)
+stack_push (choice_t* stack, pset_t** grid)
 {
   size_t min_cardinality = MAX_COLORS + 1;
   unsigned int min_i = 0;
@@ -89,7 +105,7 @@ stack_push (choice_t* stack, pset_t **grid)
     for (unsigned int j = 0; j < grid_size; j++)
       {
 	size_t cdn = pset_cardinality (grid[i][j]);
-	if (cdn != 1 && cdn < min_cardinality)
+	if (!(cdn <= 1) && cdn < min_cardinality)
 	  {
 	    min_cardinality = cdn;
 	    min_i = i;
@@ -105,6 +121,8 @@ stack_push (choice_t* stack, pset_t **grid)
   our_choice->x      = min_i;
   our_choice->y      = min_j;
   our_choice->choice = pset_leftmost (grid[min_i][min_j]);
+  if (verbose)
+    stack_print (our_choice);
   our_choice->previous = stack;
 
   grid[min_i][min_j] = pset_leftmost (grid[min_i][min_j]);
@@ -112,41 +130,11 @@ stack_push (choice_t* stack, pset_t **grid)
   return (our_choice);
 }  
 
-void
-grid_choice (pset_t** grid)
-{
-  size_t min_cardinality = MAX_COLORS + 1;
-  unsigned int min_i = 0;
-  unsigned int min_j = 0;
-
-  for (unsigned int i = 0; i < grid_size; i++)
-    for (unsigned int j = 0; j < grid_size; j++)
-      {
-	size_t cdn = pset_cardinality (grid[i][j]);
-	if (cdn != 1 && cdn < min_cardinality)
-	  {
-	    min_cardinality = cdn;
-	    min_i = i;
-	    min_j = j;
-	  }
-      }
-
-  if (min_cardinality == MAX_COLORS + 1)
-    return;
-
-  char str1[MAX_COLORS + 1];
-  char str2[MAX_COLORS + 1];
-  pset2str (str1, grid[min_i][min_j]);
-  pset2str (str2, pset_leftmost (grid[min_i][min_j]));
-  printf ("Next choice at: grid[%d][%d] = '%s', and choice is = '%s'\n", 
-	  min_i, min_j, str1, str2);
-  
-  grid[min_i][min_j] = pset_leftmost (grid[min_i][min_j]);
-}
-
 bool 
 grid_solver (pset_t** grid)
 {
+  choice_t* stack = NULL;
+  
   for (;;)
     {
       switch (grid_heuristics (grid))
@@ -156,11 +144,16 @@ grid_solver (pset_t** grid)
 	  grid_print (grid);
 	  return (true);
 	case 1:
-	  grid_choice (grid);
+	  stack = stack_push (stack, grid);
 	  break;
 	case 2:
-	  fprintf (output_stream, "Grid is not consistent\n");
-	  return (false);
+	  stack = stack_pop (stack, grid);
+	  if (stack == NULL)
+	    {
+	      fprintf (output_stream, "Grid could not be solved\n");
+	      return (false);
+	    }
+	  break;
 	}
     }
 }
