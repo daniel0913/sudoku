@@ -53,4 +53,10 @@ bool pset_is_included (pset_t, pset_t);
 bool pset_is_singleton (pset_t);
 size_t pset_cardinality (pset_t);
 
+/*
+ * Returns a pset with only the leftmost bit set of the pset given as
+ * argument
+ */
+pset_t pset_leftmost (pset_t);
+
 #endif /* PREEMPTIVE_SET_H */

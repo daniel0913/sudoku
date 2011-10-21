@@ -105,3 +105,9 @@ pset_cardinality (pset_t pset)
   pset = (pset + (pset >> 4)) & m4;
   return (pset * h01)>>56;
 }
+
+pset_t
+pset_leftmost (pset_t pset)
+{
+  return (pset_and (pset, pset_negate (pset - 1)));
+}

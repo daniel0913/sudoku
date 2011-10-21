@@ -21,7 +21,149 @@ static size_t grid_size = 0;
 static pset_t** grid; 
 
 static void usage (int);
-void grid_print (pset_t** grid);
+void grid_print (pset_t**);
+int grid_heuristics (pset_t**);
+pset_t** grid_copy (pset_t**);
+void grid_free (pset_t**);
+
+typedef struct choice {
+  pset_t **grid; /* Original grid */
+  size_t x;      /* x-coordinate of the changed cell */
+  size_t y;      /* y-coordinate of the changed cell */
+  pset_t choice; /* storage of the choice we made */
+
+  struct choice *previous; /* Link to the previous choice
+         		    * or NULL if it is the first choice */
+} choice_t;
+
+choice_t* stack_pop (choice_t* stack, pset_t** grid)
+{
+  
+}
+
+void
+stack_print (choice_t* stack)
+{
+  if (stack == NULL)
+    return;
+  
+   char str1[MAX_COLORS + 1];
+   char str2[MAX_COLORS + 1];
+   pset2str (str1, stack->grid[stack->x][stack->y]);
+   pset2str (str2, stack->choice);
+   if (verbose)
+     grid_print (stack->grid);
+
+   printf ("Next choice at: grid[%d][%d] = '%s', and choice is = '%s'\n", 
+	   (int) stack->x, (int) stack->y, str1, str2);
+}
+
+size_t
+stack_depth (choice_t* stack)
+{
+  if (stack == NULL)
+    return (0);
+  return (1 + stack_depth (stack->previous));
+}
+
+void 
+stack_free (choice_t* stack)
+{
+  if (stack == NULL)
+    return;
+  choice_t* prev = stack->previous;
+  
+  grid_free (stack->grid);
+  free (stack);
+  return (stack_free (prev));
+}
+
+choice_t*
+stack_push (choice_t* stack, pset_t **grid)
+{
+  size_t min_cardinality = MAX_COLORS + 1;
+  unsigned int min_i = 0;
+  unsigned int min_j = 0;
+
+  for (unsigned int i = 0; i < grid_size; i++)
+    for (unsigned int j = 0; j < grid_size; j++)
+      {
+	size_t cdn = pset_cardinality (grid[i][j]);
+	if (cdn != 1 && cdn < min_cardinality)
+	  {
+	    min_cardinality = cdn;
+	    min_i = i;
+	    min_j = j;
+	  }
+      }
+
+  if (min_cardinality == MAX_COLORS + 1)
+    return (stack);
+
+  choice_t* our_choice = malloc (sizeof (choice_t));
+  our_choice->grid   = grid_copy (grid);
+  our_choice->x      = min_i;
+  our_choice->y      = min_j;
+  our_choice->choice = pset_leftmost (grid[min_i][min_j]);
+  our_choice->previous = stack;
+
+  grid[min_i][min_j] = pset_leftmost (grid[min_i][min_j]);
+
+  return (our_choice);
+}  
+
+void
+grid_choice (pset_t** grid)
+{
+  size_t min_cardinality = MAX_COLORS + 1;
+  unsigned int min_i = 0;
+  unsigned int min_j = 0;
+
+  for (unsigned int i = 0; i < grid_size; i++)
+    for (unsigned int j = 0; j < grid_size; j++)
+      {
+	size_t cdn = pset_cardinality (grid[i][j]);
+	if (cdn != 1 && cdn < min_cardinality)
+	  {
+	    min_cardinality = cdn;
+	    min_i = i;
+	    min_j = j;
+	  }
+      }
+
+  if (min_cardinality == MAX_COLORS + 1)
+    return;
+
+  char str1[MAX_COLORS + 1];
+  char str2[MAX_COLORS + 1];
+  pset2str (str1, grid[min_i][min_j]);
+  pset2str (str2, pset_leftmost (grid[min_i][min_j]));
+  printf ("Next choice at: grid[%d][%d] = '%s', and choice is = '%s'\n", 
+	  min_i, min_j, str1, str2);
+  
+  grid[min_i][min_j] = pset_leftmost (grid[min_i][min_j]);
+}
+
+bool 
+grid_solver (pset_t** grid)
+{
+  for (;;)
+    {
+      switch (grid_heuristics (grid))
+	{
+	case 0:
+	  fprintf (output_stream, "Grid has been solved\n");
+	  grid_print (grid);
+	  return (true);
+	case 1:
+	  grid_choice (grid);
+	  break;
+	case 2:
+	  fprintf (output_stream, "Grid is not consistent\n");
+	  return (false);
+	}
+    }
+}
 
 static void
 get_block (pset_t** grid, unsigned int k, pset_t* block[grid_size])
@@ -163,7 +305,7 @@ subgrid_heuristics (pset_t** subgrid)
   return (!changed);
 }
 
-int 
+int
 grid_heuristics (pset_t** grid)
 {
   bool not_changed = false;
@@ -219,6 +361,18 @@ grid_alloc (void)
   fprintf (stderr, "%s: error: out of memory!\n", exec_name);
   usage (EXIT_FAILURE);
   return (NULL);
+}
+
+pset_t**
+grid_copy (pset_t** grid)
+{
+  pset_t** new_grid = grid_alloc ();
+
+  for (unsigned int i = 0; i < grid_size; i++)
+    for (unsigned int j = 0; j < grid_size; j++)
+      new_grid[i][j] = grid[i][j];
+  
+  return (new_grid);
 }
 
 void
@@ -496,7 +650,7 @@ main (int argc, char* argv[])
 	  usage (EXIT_FAILURE);
 	}
     }
-  
+
   if (optind != argc -1)
     usage (EXIT_FAILURE);
   else
@@ -508,21 +662,7 @@ main (int argc, char* argv[])
 	  usage (EXIT_FAILURE);
 	}
       grid_parser (in);
-
-      switch (grid_heuristics (grid))
-      	{
-      	case 0:
-      	  fprintf (output_stream, "Grid has been solved\n");
-      	  break;
-      	case 1:
-      	  fprintf (output_stream, "Grid has not been solved\n");
-      	  break;
-      	case 2:
-      	  fprintf (output_stream, "Grid is not consistent\n");
-      	  break;
-      	}
-
-      grid_print (grid);
+      grid_solver (grid);
       grid_free (grid);
     }
 
