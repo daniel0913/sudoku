@@ -147,12 +147,12 @@ grid_solver (pset_t** grid)
 	  stack = stack_push (stack, grid);
 	  break;
 	case 2:
-	  stack = stack_pop (stack, grid);
 	  if (stack == NULL)
 	    {
 	      fprintf (output_stream, "Grid could not be solved\n");
 	      return (false);
 	    }
+	  stack = stack_pop (stack, grid);
 	  break;
 	}
     }
@@ -211,8 +211,11 @@ all_different (pset_t* subgrid[grid_size])
   pset_t acc = 0;
   
   for (unsigned int i = 0; i < grid_size; i++)
-    acc = pset_xor (acc, *subgrid[i]);
-
+    {
+      acc = pset_xor (acc, *subgrid[i]);
+      if (!pset_is_singleton (*subgrid[i]))
+	return (false);
+    }
   return (acc == pset_full (grid_size));
 }
 
