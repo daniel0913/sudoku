@@ -88,7 +88,7 @@ choice_t* stack_pop (choice_t* stack, pset_t** grid)
     for (unsigned int j = 0; j < grid_size; j++)
       grid[i][j] = stack->grid[i][j];
 
-  free (stack->grid);
+  grid_free (stack->grid);
   free (stack);
 
   return (prev);
@@ -142,6 +142,7 @@ grid_solver (pset_t** grid)
 	case 0:
 	  fprintf (output_stream, "Grid has been solved\n");
 	  grid_print (grid);
+	  stack_free (stack);
 	  return (true);
 	case 1:
 	  stack = stack_push (stack, grid);
