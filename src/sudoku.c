@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 #include <preemptive_set.h>
 
@@ -253,6 +254,126 @@ grid_solved (pset_t** grid)
   return (subgrid_map (grid, &all_different));
 }
 
+/*
+ * Crosses off the `colors` in `grid` either from row `row` or the
+ * column `column` (-1 signifies that that it should not be crossed
+ * off of the row/column, but not on the `k`th block.
+ */
+
+static bool
+cross_off_candidate (pset_t** grid, pset_t colors, 
+		     int row, int col, int k)
+{
+  bool changed = false;
+  size_t block_size = sqrt (grid_size);
+
+  unsigned int init_i = (k / block_size) * block_size;
+  unsigned int init_j = (k * block_size) % grid_size;
+
+  if (row >= 0 && col < 0) 
+    {
+      for (unsigned int c = 0; c < grid_size; c++)
+	if (c < init_j || c >= (init_j + block_size))
+	  {
+	    pset_t tmp = grid[init_i + row][c];
+	    
+	    grid[init_i + row][c] = pset_and (grid[init_i + row][c],
+					      pset_negate (colors));
+	    if (tmp != grid[init_i + row][c])
+	      changed = true;
+	  }
+    }
+
+  if (col >= 0 && row < 0)
+    {
+      for (unsigned int c = 0; c < grid_size; c++)
+	if (c < init_i || c >= (init_i + block_size))
+	  {
+	    pset_t tmp = grid[c][init_j + col];
+
+	    grid[c][init_j + col] = pset_and (grid[c][init_j + col],
+					      pset_negate (colors));
+	    if (tmp != grid[c][init_j + col])
+	      changed = true;
+	  }
+    }
+  
+  return (changed);
+}
+
+/*
+ * A heuristic that removes the candidates that are locked in a
+ * column/row inside the kth block from the cells in that column/row
+ */ 
+static bool
+rm_locked_candidates (pset_t** grid, int k)
+{
+  bool changed = false;
+  pset_t row_acc, col_acc;
+  size_t block_size = sqrt (grid_size);
+  int row = 0;
+  int col = 0;
+  
+  pset_t* block[grid_size];
+  pset_t* row_locked_candidates = malloc (sizeof (pset_t) * block_size);
+  pset_t* col_locked_candidates = malloc (sizeof (pset_t) * block_size);
+  if (row_locked_candidates == NULL || col_locked_candidates == NULL)
+    {
+      fprintf (stderr, "%s: out of memory\n", exec_name);
+      usage (EXIT_FAILURE);
+    }
+  bzero (row_locked_candidates, sizeof (pset_t) * block_size);
+  bzero (col_locked_candidates, sizeof (pset_t) * block_size);
+  
+  get_block (grid, k, block);
+  
+  for (unsigned int i = 0; i < grid_size; i += block_size)
+    {
+      for (unsigned int j = i; j < i+block_size; j++)
+	if (!pset_is_singleton (*block[j]))
+	  row_locked_candidates[row] = pset_or (row_locked_candidates[row],
+					    *block[j]);
+      row++;
+    }
+
+  for (unsigned int i = 0; i < block_size; i++)
+    {
+      for (unsigned int j = i; j < grid_size; j += block_size)
+	if (!pset_is_singleton (*block[j]))
+	  col_locked_candidates[col] = pset_or (col_locked_candidates[col],
+						*block[j]);
+      col++;
+    }
+  
+  for (unsigned int i = 0; i < block_size; i++)
+    {
+      row_acc = row_locked_candidates[i];
+      col_acc = col_locked_candidates[i];
+      
+      for (unsigned int j = 0; j < block_size; j++)
+	if (j != i)
+	  {
+	    row_acc = pset_and (row_acc, pset_negate (row_locked_candidates[j]));
+	    col_acc = pset_and (col_acc, pset_negate (col_locked_candidates[j]));
+	  }
+      if (row_acc != pset_empty ())
+	{
+	  bool tmp = cross_off_candidate (grid, row_acc, i, -1, k);
+	  changed = changed || tmp;
+	}
+      if (col_acc != pset_empty ())
+	{
+	  bool tmp = cross_off_candidate (grid, col_acc, -1, i, k);
+	  changed = changed || tmp;
+	}
+    }
+
+  free (row_locked_candidates);
+  free (col_locked_candidates);
+  
+  return (changed);
+}
+
 static bool
 subgrid_heuristics (pset_t** subgrid)
 {
@@ -315,6 +436,13 @@ grid_heuristics (pset_t** grid)
 	  fprintf (output_stream, "\n");
 	}
       not_changed = subgrid_map (grid, &subgrid_heuristics);
+      if (not_changed)
+      	for (unsigned int k = 0; k < grid_size; k++)
+      	  if (rm_locked_candidates (grid, k))
+      	    {
+      	      not_changed = false;
+      	      break;
+      	    }
     }
 
   if (grid_solved (grid))
