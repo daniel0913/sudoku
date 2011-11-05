@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include <preemptive_set.h>
 
@@ -13,6 +14,8 @@
 #define MAX_GRID_SIZE 64
 
 static bool verbose = false;
+static bool random_choice = false;
+static bool strict = false;
 static char* exec_name;
 
 static FILE* output_stream;
@@ -25,6 +28,10 @@ void grid_print (pset_t**);
 int grid_heuristics (pset_t**);
 pset_t** grid_copy (pset_t**);
 void grid_free (pset_t**);
+void out_of_memory ();
+static void check_size_of_grid (int s, FILE *in);
+static pset_t** grid_alloc (void);
+
 
 typedef struct choice {
   pset_t **grid; /* Original grid */
@@ -49,7 +56,8 @@ stack_print (choice_t* stack)
    if (verbose)
      grid_print (stack->grid);
 
-   printf ("Next choice at: grid[%d][%d] = '%s', and choice is = '%s'\n", 
+   fprintf (output_stream,
+	    "Next choice at: grid[%d][%d] = '%s', and choice is = '%s'\n",
 	   (int) stack->x, (int) stack->y, str1, str2);
 }
 
@@ -98,25 +106,52 @@ choice_t*
 stack_push (choice_t* stack, pset_t** grid)
 {
   size_t min_cardinality = MAX_COLORS + 1;
-  unsigned int min_i = 0;
-  unsigned int min_j = 0;
+  unsigned int* min_is;
+  unsigned int  min_i = 0;
+  unsigned int* min_js;
+  unsigned int  min_j = 0;
+
+  int num_mins = 0;
+  
+  min_is = malloc (grid_size * grid_size * sizeof (unsigned int));
+  min_js = malloc (grid_size * grid_size * sizeof (unsigned int));
+
+  if (min_js == NULL || min_js == NULL)
+    out_of_memory ();
 
   for (unsigned int i = 0; i < grid_size; i++)
     for (unsigned int j = 0; j < grid_size; j++)
       {
 	size_t cdn = pset_cardinality (grid[i][j]);
-	if (!(cdn <= 1) && cdn < min_cardinality)
+	if (!(cdn <= 1) && cdn <= min_cardinality)
 	  {
 	    min_cardinality = cdn;
-	    min_i = i;
-	    min_j = j;
+	    min_is[num_mins] = i;
+	    min_js[num_mins] = j;
+	    num_mins++;
 	  }
       }
+  if (random_choice)
+    {
+      min_i = min_is[rand () % num_mins];
+      min_j = min_js[rand () % num_mins];
+    }
+  else 
+    {
+      min_i = min_is[0];
+      min_j = min_js[0];
+    }
 
+  free (min_js);
+  free (min_is);
+  
   if (min_cardinality == MAX_COLORS + 1)
     return (stack);
 
   choice_t* our_choice = malloc (sizeof (choice_t));
+  if (our_choice == NULL)
+    out_of_memory ();
+
   our_choice->grid   = grid_copy (grid);
   our_choice->x      = min_i;
   our_choice->y      = min_j;
@@ -130,6 +165,42 @@ stack_push (choice_t* stack, pset_t** grid)
   return (our_choice);
 }  
 
+static int
+number_of_solutions (pset_t** grid)
+{
+  choice_t* stack = NULL;
+  int sols = 0;
+  
+  for (;;)
+    {
+      switch (grid_heuristics (grid))
+	{
+	case 0:
+	  sols++;
+	  if (stack == NULL)
+	    {
+	      stack_free (stack);
+	      return (sols);
+	    }
+	  else
+	    {
+	      stack = stack_pop (stack, grid);
+	      break;
+	    }
+	case 1:
+	  stack = stack_push (stack, grid);
+	  break;
+	case 2:
+	  if (stack == NULL)
+	    {
+	      return (sols);
+	    }
+	  stack = stack_pop (stack, grid);
+	  break;
+	}
+    }
+}
+
 bool 
 grid_solver (pset_t** grid)
 {
@@ -140,8 +211,11 @@ grid_solver (pset_t** grid)
       switch (grid_heuristics (grid))
 	{
 	case 0:
-	  fprintf (output_stream, "Grid has been solved\n");
-	  grid_print (grid);
+	  if (!random_choice) 
+	    {
+	      fprintf (output_stream, "Grid has been solved\n");
+	      grid_print (grid);
+	    }
 	  stack_free (stack);
 	  return (true);
 	case 1:
@@ -150,7 +224,8 @@ grid_solver (pset_t** grid)
 	case 2:
 	  if (stack == NULL)
 	    {
-	      fprintf (output_stream, "Grid could not be solved\n");
+	      if (!random_choice)
+		fprintf (output_stream, "Grid could not be solved\n");
 	      return (false);
 	    }
 	  stack = stack_pop (stack, grid);
@@ -231,10 +306,10 @@ subgrid_consistency (pset_t* subgrid[grid_size])
   for (unsigned int i = 0; i < grid_size; i++)
     for (unsigned int j = 0; j < grid_size; j++)
       {
-	if (pset_is_singleton (*subgrid[i]) 
+	if ((pset_is_singleton (*subgrid[i]) 
 	    && pset_is_singleton (*subgrid[j])
 	    && (*subgrid[i] == *subgrid[j])
-	    && i != j)
+	     && i != j) || *subgrid[i] == pset_empty ())
 	  return (false);
       }
   
@@ -315,6 +390,8 @@ grid_heuristics (pset_t** grid)
 	  fprintf (output_stream, "\n");
 	}
       not_changed = subgrid_map (grid, &subgrid_heuristics);
+      if (!grid_consistency (grid))
+	return (2);
     }
 
   if (grid_solved (grid))
@@ -324,6 +401,88 @@ grid_heuristics (pset_t** grid)
     return (1);
   else
     return (2);
+}
+
+/*
+ * shuffles the elements on the array `arr` (of size `size`)
+ * in a random permutation
+ */
+void
+shuffle (int* arr, int size)
+{
+  srand (time (NULL));
+
+  for (int i = 0; i < size - 1; i++)
+    {
+      int r  = i + (rand () % (size - i));
+      int t  = arr[i];
+      arr[i] = arr[r];
+      arr[r] = t;
+    }
+}
+
+void
+generate_grid (int size)
+{
+  check_size_of_grid (size, NULL);
+
+  int num_elements = size * size;
+  int empty_cells;
+
+  grid_size = size;
+  grid = grid_alloc ();
+  
+  for (unsigned int i = 0; i < grid_size; i++)
+    for (unsigned int j = 0; j < grid_size; j++)
+      grid[i][j] = pset_full (grid_size);
+      
+  random_choice = true; 
+  srand (time (NULL));
+  
+  grid_solver (grid);
+  
+  int* arr = malloc (num_elements * (sizeof (int)));
+
+  if (arr == NULL)
+    out_of_memory ();
+
+  for (int i = 0; i < num_elements; i++)
+    arr[i] = i;
+  shuffle (arr, num_elements);
+  
+  if (strict)
+    {
+      for (int i = 0; i < num_elements; i++)
+	{
+	  pset_t tmp = grid[arr[i] / grid_size][arr[i] % grid_size];
+	  grid[arr[i] / grid_size][arr[i] % grid_size] = pset_full (grid_size);
+
+	  pset_t** orig1 = grid_copy (grid);
+	  pset_t** orig2 = grid_copy (grid);
+	  
+	  if (grid_heuristics (orig1) != 0 && number_of_solutions (orig2) != 1)
+	    {
+	      grid[arr[i] / grid_size][arr[i] % grid_size] = tmp;
+	      break;
+	    }
+	  grid_free (orig1);
+	  grid_free (orig2);
+	}
+    }
+  else
+    {
+      empty_cells = (2 * num_elements) / 3;
+
+      for (int i = 0; i < empty_cells; i++)
+	{
+	  grid[arr[i] / grid_size][arr[i] % grid_size] =
+	    pset_full (grid_size);
+	}
+    }
+  
+  free (arr);
+  grid_print (grid);
+  grid_free (grid);
 }
 
 void
@@ -345,19 +504,21 @@ grid_alloc (void)
 
   ret = calloc (grid_size, sizeof (pset_t*));
   if (ret == NULL)
-    goto out_of_memory;
+    out_of_memory ();
   for (unsigned int i = 0; i < grid_size; i++)
     {
       ret[i] = calloc (grid_size, sizeof (pset_t));
       if (ret[i] == NULL)
-	goto out_of_memory;
+	out_of_memory ();
     }
   return (ret);
+}
 
- out_of_memory:
+void
+out_of_memory ()
+{
   fprintf (stderr, "%s: error: out of memory!\n", exec_name);
   usage (EXIT_FAILURE);
-  return (NULL);
 }
 
 pset_t**
@@ -381,7 +542,8 @@ grid_print (pset_t** grid)
   for (unsigned int i = 0; i < grid_size; i++)
     for (unsigned int j = 0; j < grid_size; j++)
       {
-	if (pset_cardinality(grid[i][j]) > max_cardinality)
+	if (pset_cardinality (grid[i][j]) > max_cardinality
+	    && grid[i][j] != pset_full (grid_size))
 	  max_cardinality = pset_cardinality(grid[i][j]);
       }
   
@@ -389,11 +551,21 @@ grid_print (pset_t** grid)
     {
       for (unsigned int j = 0; j < grid_size; j++)
 	{
-	  size_t max_length = max_cardinality - pset_cardinality(grid[i][j]);
+	  size_t spaces_length;
 	  
-	  pset2str (str, grid[i][j]);
-	  fprintf (output_stream, "%s ", str);
-	  for (;max_length > 0; max_length--)
+	  if (grid[i][j] == pset_full (grid_size))
+	    {
+	      spaces_length = max_cardinality;
+	      fprintf (output_stream, "_");
+	    }
+	  else 
+	    {
+	      spaces_length = max_cardinality - pset_cardinality(grid[i][j]);
+
+	      pset2str (str, grid[i][j]);
+	      fprintf (output_stream, "%s ", str);
+	    }
+	  for (;spaces_length > 0; spaces_length--)
 	    fputc (' ', output_stream);
 	}
       fprintf (output_stream, "\n");
@@ -453,7 +625,8 @@ check_size_of_grid (int s, FILE *in)
   if (s != 1  && s != 4  && s != 9  && s != 16 &&
       s != 25 && s != 36 && s != 49 && s != 64)
     {
-      fclose (in);
+      if (in != NULL)
+	fclose (in);
       fprintf (stderr, "Wrong grid size: %d\n", s);
       usage (EXIT_FAILURE);
     }
@@ -601,14 +774,17 @@ version (void)
 int 
 main (int argc, char* argv[])
 {
+  bool generate = false;
   int optc;
   FILE* fp, *in; 
   struct option long_opts[] = 
     {
-      {"output",  required_argument, 0, 'o'}, 
-      {"verbose", no_argument,       0, 'v'},
-      {"version", no_argument,       0, 'V'},
-      {"help",    no_argument,       0, 'h'},
+      {"output",   required_argument, 0, 'o'},
+      {"generate", optional_argument, 0, 'g'},
+      {"strict",   no_argument,       0, 's'},
+      {"verbose",  no_argument,       0, 'v'},
+      {"version",  no_argument,       0, 'V'},
+      {"help",     no_argument,       0, 'h'},
       {NULL, 0, NULL, 0}
     };
 
@@ -616,7 +792,7 @@ main (int argc, char* argv[])
   output_stream = stdout;
   in = NULL;
 
-  while ((optc = getopt_long (argc, argv, "o:vVh", long_opts, NULL)) != -1)
+  while ((optc = getopt_long (argc, argv, "o:vVshg::", long_opts, NULL)) != -1)
     {
       switch (optc)
 	{
@@ -631,6 +807,14 @@ main (int argc, char* argv[])
 	    output_stream = fp;
 	  break;
 
+	case 'g':
+	  generate = true;
+	  break;
+
+	case 's':
+	  strict = true;
+	  break;
+	  
 	case 'v':
 	  verbose = true;
 	  break; 
@@ -647,7 +831,16 @@ main (int argc, char* argv[])
 	  usage (EXIT_FAILURE);
 	}
     }
+  if (generate)
+    {
+      if (optarg != NULL)
+	generate_grid (atoi (optarg));
+      else
+	generate_grid (9);
 
+      goto free_output;
+    }
+  
   if (optind != argc -1)
     usage (EXIT_FAILURE);
   else
@@ -662,7 +855,7 @@ main (int argc, char* argv[])
       grid_solver (grid);
       grid_free (grid);
     }
-
+ free_output:
   if ((output_stream != stdout && fclose (output_stream) != 0) ||
       (in != NULL && fclose (in) != 0))
     {
