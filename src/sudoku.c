@@ -23,14 +23,14 @@ static FILE* output_stream;
 static size_t grid_size = 0;
 static pset_t** grid; 
 
-static void usage (int);
+void usage (int);
 void grid_print (const pset_t**);
 int grid_heuristics (pset_t**);
 pset_t** grid_copy (const pset_t**);
 void grid_free (pset_t**);
 void out_of_memory ();
-static void check_size_of_grid (int s, FILE *in);
-static pset_t** grid_alloc (void);
+void check_size_of_grid (int s, FILE *in);
+pset_t** grid_alloc (void);
 
 
 typedef struct choice {
@@ -84,7 +84,14 @@ stack_free (choice_t* stack)
   return (stack_free (prev));
 }
 
-choice_t* stack_pop (choice_t* stack, pset_t** grid)
+/*
+ * stack_pop is used for backtracking, it brings the grid passed as an
+ * argument to a state where the last choice was made and removes that
+ * choice as a possibility
+ */
+
+choice_t*
+stack_pop (choice_t* stack, pset_t** grid)
 {
 
   if (stack == NULL)
@@ -104,6 +111,13 @@ choice_t* stack_pop (choice_t* stack, pset_t** grid)
 
   return (prev);
 }
+
+/*
+ * stack_push chooses the first cell with the least choice if
+ * random_choice is false otherwise it chooses one of the cells with
+ * the least choice to be made randomly. Saves the choice in the stack
+ * and returns the new stack.
+ */
 
 choice_t*
 stack_push (const choice_t* stack, pset_t** grid)
@@ -168,7 +182,14 @@ stack_push (const choice_t* stack, pset_t** grid)
   return (our_choice);
 }  
 
-static int
+/*
+ * Given a grid, number_of_solutions tries solving it and when it
+ * arrives to a solution then it backtracks and tries to find other
+ * solutions while counting the number of them, this number is
+ * returned in the end
+ */
+
+int
 number_of_solutions (pset_t** grid)
 {
   choice_t* stack = NULL;
@@ -204,6 +225,11 @@ number_of_solutions (pset_t** grid)
     }
 }
 
+/*
+ * Tries solving the grid with heuristics and when they don't work it
+ * guesses a cell with stack_push
+ */
+
 bool 
 grid_solver (pset_t** grid)
 {
@@ -237,7 +263,7 @@ grid_solver (pset_t** grid)
     }
 }
 
-static void
+void
 get_block (const pset_t** grid, unsigned int k, pset_t* block[grid_size])
 {
   size_t block_size = sqrt (grid_size);
@@ -284,7 +310,7 @@ subgrid_map (pset_t** grid, bool (*func) (pset_t* subgrid[grid_size]))
   return (acc);
 }
 
-static bool
+bool
 all_different (pset_t* subgrid[grid_size])
 {
   pset_t acc = 0;
@@ -298,7 +324,7 @@ all_different (pset_t* subgrid[grid_size])
   return (acc == pset_full (grid_size));
 }
 
-static bool
+bool
 subgrid_consistency (pset_t* subgrid[grid_size])
 {
   pset_t acc = 0;
@@ -331,7 +357,7 @@ grid_solved (pset_t** grid)
   return (subgrid_map (grid, &all_different));
 }
 
-static bool
+bool
 subgrid_heuristics (pset_t** subgrid)
 {
   bool changed = false;
@@ -501,7 +527,7 @@ grid_free (pset_t** grid)
   grid = NULL;
 }
 
-static pset_t**
+pset_t**
 grid_alloc (void)
 {
   pset_t** ret;
@@ -576,7 +602,7 @@ grid_print (const pset_t** grid)
     }
 }
 
-static bool
+bool
 check_input_char (char c)
 {
   const char tbl[] = "123456789"
@@ -593,7 +619,7 @@ check_input_char (char c)
   return (false);
 }
 
-static void
+void
 bad_character (int line_number, char c, FILE* in)
 {
   fclose (in);
@@ -603,7 +629,7 @@ bad_character (int line_number, char c, FILE* in)
   usage (EXIT_FAILURE);
 }
 
-static void
+void
 bad_number_of_lines (FILE* in)
 {
   fclose (in);
@@ -613,7 +639,7 @@ bad_number_of_lines (FILE* in)
   usage (EXIT_FAILURE);
 }
 
-static void
+void
 bad_line (int line_number, FILE* in)
 {
   fclose (in);
@@ -623,7 +649,7 @@ bad_line (int line_number, FILE* in)
   usage (EXIT_FAILURE);
 }
 
-static void
+void
 check_size_of_grid (int s, FILE *in)
 {
   if (s != 1  && s != 4  && s != 9  && s != 16 &&
@@ -741,7 +767,7 @@ grid_parser (FILE *in)
       bad_number_of_lines (in);
 }
 
-static void
+void
 usage (int status)
 {
   if (status == EXIT_SUCCESS)
@@ -766,7 +792,7 @@ usage (int status)
   exit (status);
 }
 
-static void
+void
 version (void)
 {
   printf ("%s %d.%d.%d\n"
