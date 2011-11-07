@@ -2,7 +2,7 @@ CFLAGS=-std=c99 -Wall -Wextra -g -O2
 CPPFLAGS=-I../include -DDEBUG
 LDFLAGS=-lm
 
-OBJ=sudoku.o preemptive_set.o
+OBJ=sudoku.o preemptive_set.o heuristics.o parser.o main.o
 
 .PHONY: all clean help
 
