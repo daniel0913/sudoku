@@ -24,9 +24,9 @@ static size_t grid_size = 0;
 static pset_t** grid; 
 
 static void usage (int);
-void grid_print (pset_t**);
+void grid_print (const pset_t**);
 int grid_heuristics (pset_t**);
-pset_t** grid_copy (pset_t**);
+pset_t** grid_copy (const pset_t**);
 void grid_free (pset_t**);
 void out_of_memory ();
 static void check_size_of_grid (int s, FILE *in);
@@ -44,7 +44,7 @@ typedef struct choice {
 } choice_t;
 
 void
-stack_print (choice_t* stack)
+stack_print (const choice_t* stack)
 {
   if (stack == NULL)
     return;
@@ -54,7 +54,7 @@ stack_print (choice_t* stack)
    pset2str (str1, stack->grid[stack->x][stack->y]);
    pset2str (str2, stack->choice);
    if (verbose)
-     grid_print (stack->grid);
+     grid_print ((const pset_t**) stack->grid);
 
    fprintf (output_stream,
 	    "Next choice at: grid[%d][%d] = '%s', and choice is = '%s'\n",
@@ -62,7 +62,7 @@ stack_print (choice_t* stack)
 }
 
 size_t
-stack_depth (choice_t* stack)
+stack_depth (const choice_t* stack)
 {
   if (stack == NULL)
     return (0);
@@ -78,6 +78,9 @@ stack_free (choice_t* stack)
   
   grid_free (stack->grid);
   free (stack);
+
+  stack = NULL;
+  
   return (stack_free (prev));
 }
 
@@ -103,7 +106,7 @@ choice_t* stack_pop (choice_t* stack, pset_t** grid)
 }
 
 choice_t*
-stack_push (choice_t* stack, pset_t** grid)
+stack_push (const choice_t* stack, pset_t** grid)
 {
   size_t min_cardinality = MAX_COLORS + 1;
   unsigned int* min_is;
@@ -146,19 +149,19 @@ stack_push (choice_t* stack, pset_t** grid)
   free (min_is);
   
   if (min_cardinality == MAX_COLORS + 1)
-    return (stack);
+    return ((choice_t*) stack);
 
   choice_t* our_choice = malloc (sizeof (choice_t));
   if (our_choice == NULL)
     out_of_memory ();
 
-  our_choice->grid   = grid_copy (grid);
+  our_choice->grid   = grid_copy ((const pset_t**) grid);
   our_choice->x      = min_i;
   our_choice->y      = min_j;
   our_choice->choice = pset_leftmost (grid[min_i][min_j]);
   if (verbose)
     stack_print (our_choice);
-  our_choice->previous = stack;
+  our_choice->previous = (choice_t*) stack;
 
   grid[min_i][min_j] = pset_leftmost (grid[min_i][min_j]);
 
@@ -214,7 +217,7 @@ grid_solver (pset_t** grid)
 	  if (!random_choice) 
 	    {
 	      fprintf (output_stream, "Grid has been solved\n");
-	      grid_print (grid);
+	      grid_print ((const pset_t**) grid);
 	    }
 	  stack_free (stack);
 	  return (true);
@@ -235,7 +238,7 @@ grid_solver (pset_t** grid)
 }
 
 static void
-get_block (pset_t** grid, unsigned int k, pset_t* block[grid_size])
+get_block (const pset_t** grid, unsigned int k, pset_t* block[grid_size])
 {
   size_t block_size = sqrt (grid_size);
 
@@ -247,7 +250,7 @@ get_block (pset_t** grid, unsigned int k, pset_t* block[grid_size])
   for (unsigned int i = 0; i < block_size; i++)
     for (unsigned int j = 0; j < block_size; j++)
       {
-	block[block_index] = &grid[init_i + i][init_j + j];
+	block[block_index] = (pset_t*) &grid[init_i + i][init_j + j];
 	block_index++;
       }
 }
@@ -274,7 +277,7 @@ subgrid_map (pset_t** grid, bool (*func) (pset_t* subgrid[grid_size]))
 
   for (unsigned int i = 0; i < grid_size; i++)
     {
-      get_block (grid, i, block_subgrid);
+      get_block ((const pset_t**) grid, i, block_subgrid);
       acc = func (block_subgrid) && acc;
     }
 
@@ -386,7 +389,7 @@ grid_heuristics (pset_t** grid)
     {
       if (verbose)
 	{
-	  grid_print (grid);
+	  grid_print ((const pset_t**) grid);
 	  fprintf (output_stream, "\n");
 	}
       not_changed = subgrid_map (grid, &subgrid_heuristics);
@@ -408,7 +411,7 @@ grid_heuristics (pset_t** grid)
  * in a random permutation
  */
 void
-shuffle (int* arr, int size)
+shuffle (int* const arr, int size)
 {
   srand (time (NULL));
 
@@ -457,8 +460,8 @@ generate_grid (int size)
 	  pset_t tmp = grid[arr[i] / grid_size][arr[i] % grid_size];
 	  grid[arr[i] / grid_size][arr[i] % grid_size] = pset_full (grid_size);
 
-	  pset_t** orig1 = grid_copy (grid);
-	  pset_t** orig2 = grid_copy (grid);
+	  pset_t** orig1 = grid_copy ((const pset_t**) grid);
+	  pset_t** orig2 = grid_copy ((const pset_t**) grid);
 	  
 	  if (grid_heuristics (orig1) != 0 && number_of_solutions (orig2) != 1)
 	    {
@@ -481,7 +484,7 @@ generate_grid (int size)
     }
   
   free (arr);
-  grid_print (grid);
+  grid_print ((const pset_t**) grid);
   grid_free (grid);
 }
 
@@ -495,6 +498,7 @@ grid_free (pset_t** grid)
     free (grid[i]);
 
   free (grid);
+  grid = NULL;
 }
 
 static pset_t**
@@ -522,7 +526,7 @@ out_of_memory ()
 }
 
 pset_t**
-grid_copy (pset_t** grid)
+grid_copy (const pset_t** grid)
 {
   pset_t** new_grid = grid_alloc ();
 
@@ -534,7 +538,7 @@ grid_copy (pset_t** grid)
 }
 
 void
-grid_print (pset_t** grid)
+grid_print (const pset_t** grid)
 {
   char str[MAX_COLORS+1] = {0};
   size_t max_cardinality = 0;
