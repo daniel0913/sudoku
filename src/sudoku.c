@@ -780,7 +780,7 @@ main (int argc, char* argv[])
   struct option long_opts[] = 
     {
       {"output",   required_argument, 0, 'o'},
-      {"generate", optional_argument, 0, 'g'},
+      {"generate", no_argument,       0, 'g'},
       {"strict",   no_argument,       0, 's'},
       {"verbose",  no_argument,       0, 'v'},
       {"version",  no_argument,       0, 'V'},
@@ -792,7 +792,7 @@ main (int argc, char* argv[])
   output_stream = stdout;
   in = NULL;
 
-  while ((optc = getopt_long (argc, argv, "o:vVshg::", long_opts, NULL)) != -1)
+  while ((optc = getopt_long (argc, argv, "o:vVshg", long_opts, NULL)) != -1)
     {
       switch (optc)
 	{
@@ -826,17 +826,19 @@ main (int argc, char* argv[])
 	case 'h':
 	  usage (EXIT_SUCCESS);
 	  break;
-
+	  
 	default: 
 	  usage (EXIT_FAILURE);
 	}
     }
   if (generate)
     {
-      if (optarg != NULL)
-	generate_grid (atoi (optarg));
-      else
+      if (optind == argc - 1)
+	generate_grid (atoi (argv[optind]));
+      if (optind == argc)
 	generate_grid (9);
+      if (optind != argc - 1 && optind != argc)
+	usage (EXIT_FAILURE);
 
       goto free_output;
     }
