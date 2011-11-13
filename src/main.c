@@ -50,13 +50,12 @@ version (void)
 int 
 main (int argc, char* argv[])
 {
-  bool generate = false;
   int optc;
   FILE* fp, *in; 
   struct option long_opts[] = 
     {
       {"output",   required_argument, 0, 'o'},
-      {"generate", no_argument,       0, 'g'},
+      {"generate", optional_argument, 0, 'g'},
       {"strict",   no_argument,       0, 's'},
       {"verbose",  no_argument,       0, 'v'},
       {"version",  no_argument,       0, 'V'},
@@ -68,7 +67,7 @@ main (int argc, char* argv[])
   output_stream = stdout;
   in = NULL;
 
-  while ((optc = getopt_long (argc, argv, "o:vVshg", long_opts, NULL)) != -1)
+  while ((optc = getopt_long (argc, argv, "o:vVshg::", long_opts, NULL)) != -1)
     {
       switch (optc)
 	{
@@ -84,7 +83,11 @@ main (int argc, char* argv[])
 	  break;
 
 	case 'g':
-	  generate = true;
+	  if (optarg)
+	    generate_grid (atoi (optarg));
+	  else
+	    generate_grid (9);
+	  goto freeoutput;
 	  break;
 
 	case 's':
@@ -107,18 +110,7 @@ main (int argc, char* argv[])
 	  usage (EXIT_FAILURE);
 	}
     }
-  if (generate)
-    {
-      if (optind == argc - 1)
-	generate_grid (atoi (argv[optind]));
-      if (optind == argc)
-	generate_grid (9);
-      if (optind != argc - 1 && optind != argc)
-	usage (EXIT_FAILURE);
 
-      goto free_output;
-    }
-  
   if (optind != argc -1)
     usage (EXIT_FAILURE);
   else
@@ -133,7 +125,7 @@ main (int argc, char* argv[])
       grid_solver (grid);
       grid_free (grid);
     }
- free_output:
+ freeoutput:
   if ((output_stream != stdout && fclose (output_stream) != 0) ||
       (in != NULL && fclose (in) != 0))
     {
