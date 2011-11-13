@@ -103,6 +103,70 @@ grid_solved (pset_t** grid)
   return (subgrid_map (grid, &all_different));
 }
 
+static bool
+rm_naked_set (pset_t* naked_set[grid_size], pset_t* subgrid[grid_size])
+{
+  bool changed = false;
+  int upto = pset_cardinality (*naked_set[0]);
+
+  for (unsigned int i = 0; i < grid_size; i++)
+    {
+      for (int j = 0; j < upto; j++)
+	if (subgrid[i] == naked_set[j])
+	  goto continue_outter_loop;
+
+      if (pset_and (*subgrid[i], *naked_set[0]) != 0)
+	changed = true;
+
+      *subgrid[i] = pset_and (*subgrid[i], pset_negate (*naked_set[0]));
+      
+    continue_outter_loop: ;
+    }
+  return (changed);
+}
+
+static bool
+naked_set (pset_t* subgrid[grid_size])
+{
+  pset_t* eq_classes[grid_size][grid_size];
+  unsigned int cardinality_class[grid_size];
+
+  bool changed = false;
+  
+  bool assigned = false;
+  int used_classes = 0;
+  
+  for (unsigned int i = 0; i < grid_size; i++)
+    cardinality_class[i] = 0;
+
+  for (unsigned int i = 0; i < grid_size; i++)
+    {
+      for (int j = 0; j < used_classes; j++)
+	if (*subgrid[i] == *(eq_classes[j][0]))
+	  {
+	    eq_classes[j][cardinality_class[j]] = subgrid[i];
+	    cardinality_class[j]++;
+	    assigned = true;
+	  }
+      if (!assigned)
+	{
+	  eq_classes[used_classes][0] = subgrid[i];
+	  cardinality_class[used_classes] = 1;
+	  used_classes++;
+	}
+      assigned = false;
+    }
+
+  for (int i = 0; i < used_classes; i++)
+    {
+      bool tmp = false;
+      if (cardinality_class[i] >= pset_cardinality (*(eq_classes[i][0])))
+	tmp = rm_naked_set (eq_classes[i], subgrid);
+      changed = changed || tmp;
+    }
+  return (changed);
+}
+
 /*
  * Crosses off the `colors` in `grid` either from row `row` or the
  * column `column` (-1 signifies that that it should not be crossed
@@ -269,6 +333,9 @@ subgrid_heuristics (pset_t** subgrid)
 	}
     }
 
+  bool tmp = naked_set (subgrid);
+  changed = changed || tmp;
+  
   return (!changed);
 }
 
