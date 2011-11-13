@@ -384,6 +384,13 @@ grid_print (const pset_t** grid)
   char str[MAX_COLORS+1] = {0};
   size_t max_cardinality = 0;
 
+  if (grid_size == 1 && !random_choice)
+    {
+      pset2str (str,grid[0][0]);
+      fprintf (output_stream, "%s\n", str);
+      return;
+    }
+  
   for (unsigned int i = 0; i < grid_size; i++)
     for (unsigned int j = 0; j < grid_size; j++)
       {
