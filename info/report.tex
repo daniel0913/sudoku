@@ -25,7 +25,9 @@ to 64).\\
 
 \section{Heuristics}
 
-The one heuristic implemented on this project besides the
+\subsection{Locked candidates}
+
+One of the heuristics implemented on this project besides the
 cross-hatching and lone number one, is the one called \emph{removal of
   the locked candidates}.\\
 
@@ -52,6 +54,23 @@ This heuristic makes the program less efficient in smaller grids but,
 with it the program performs better in bigger grids. And since smaller
 grids are solved relatively fast anyway, in general, such a heuristic
 seems to be helpful. \\
+
+\subsection{Naked set}
+
+The other heuristic implemented is the \emph{naked set} one. The gist
+of this heuristic is this observation: if we can find in a subgrid
+\emph{n} colors of cardinality \emph{n} which are all equal to one
+another then it is safe to cancel all the elements of such a set from
+other cells of a subgrid.\\ 
+
+A subgrid is a row, column, or block.\\
+
+This heuristic is implemented in the function \textbf{naked\_set},
+which in contrast to the locked candidates heuristic can be mapped
+over all the subgrids of a grid, same as with other heuristic
+functions. This functions helper is \textbf{rm\_naked\_set} which
+cancels the colors of a naked set from a given subgrid while leaving
+the ones that are first encountered.
 
 \section{Grid Generation}
 
